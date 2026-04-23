@@ -13,7 +13,9 @@ public class Customer extends Vertex {
     public void setOrder(int order){ this.order = order; }
 
     /**
-     * This method attempts to remove a specified amount of order. If the current order is sufficient to accept the provision, it deducts the specified amount and returns true. If the order is insufficient, it leaves the order unchanged and returns false.
+     * This method attempts to remove a specified amount of order.
+     * If the current order is sufficient to accept the provision, it deducts the specified amount and returns true.
+     * If the order is insufficient, it leaves the order unchanged and returns false.
      *
      * @param order - the amount of provision to be removed
      * @return boolean - true if the provision was successfully removed, false otherwise
@@ -24,5 +26,10 @@ public class Customer extends Vertex {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return "Customer" + super.toString();
     }
 }

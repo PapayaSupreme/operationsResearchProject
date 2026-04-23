@@ -18,12 +18,14 @@ public class Provision extends Vertex {
 
     public void setProvision(int provision){ this.provision = provision; }
 
-    public void addCost(int cost, Customer customer){
+    public void addEdge(int cost, Customer customer){
         this.costs.put(cost, customer);
     }
 
     /**
-     * This method attempts to remove a specified amount of provision. If the current provision is sufficient to cover the removal, it deducts the specified amount and returns true. If the provision is insufficient, it leaves the provision unchanged and returns false.
+     * This method attempts to remove a specified amount of provision.
+     * If the current provision is sufficient to cover the removal, it deducts the specified amount and returns true.
+     * If the provision is insufficient, it leaves the provision unchanged and returns false.
      *
      * @param provision - the amount of provision to be removed
      * @return boolean - true if the provision was successfully removed, false otherwise
@@ -34,5 +36,10 @@ public class Provision extends Vertex {
         return true;
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return "Provision" + super.toString();
     }
 }
