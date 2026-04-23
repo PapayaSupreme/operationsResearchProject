@@ -15,6 +15,6 @@ public class Vertex {
     public String getName() { return this.name; }
 
     public String toString(){
-        return " Vertex : id = " + this.id + ", name = " + this.name;
+        return " Vertex : ID = " + this.id + ", name = " + this.name;
     }
 }

@@ -79,7 +79,9 @@ public class MatrixReader {
                 throw new IllegalArgumentException("File contains extra non-empty lines after customer orders line.");
             }
 
-            Graph graph = new Graph(path.getFileName().toString());
+            String temp = path.getFileName().toString();
+            temp = temp.substring(0, temp.length() - 4);
+            Graph graph = new Graph(temp);
 
             Customer[] customers = new Customer[customerCount];
             for (int j = 0; j < customerCount; j++) {

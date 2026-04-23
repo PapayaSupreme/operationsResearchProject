@@ -2,8 +2,11 @@ package structure;
 
 import utilities.IdGenerator;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Graph {
@@ -28,6 +31,52 @@ public class Graph {
 
     @Override
     public String toString() {
-        return "Graph : id = " + this.id + ", name = " + this.name;
+        List<Provision> sortedProvisions = new ArrayList<>(this.provisions.values());
+        List<Customer> sortedCustomers = new ArrayList<>(this.customers.values());
+        sortedProvisions.sort(Comparator.comparing(Provision::getName));
+        sortedCustomers.sort(Comparator.comparing(Customer::getName));
+
+        int columnWidth = 11; //static width, if we have huge provisions then it overflows careful
+        StringBuilder table = new StringBuilder();
+        table.append("Graph: ID = ").append(this.id).append(", name = ").append(this.name).append("\n");
+
+        table.append(formatCell("P\\C", columnWidth));
+        for (Customer customer : sortedCustomers) {
+            table.append("|").append(formatCell(customer.getName(), columnWidth));
+        }
+        table.append("|").append(formatCell("Provision", columnWidth)).append("\n");
+
+        int totalColumns = sortedCustomers.size() + 2;
+        table.repeat("-", columnWidth * totalColumns + sortedCustomers.size() + 1).append("\n");
+
+        for (Provision provision : sortedProvisions) {
+            table.append(formatCell(provision.getName(), columnWidth));
+            for (Customer customer : sortedCustomers) {
+                table.append("|").append(formatCell(findCost(provision, customer), columnWidth));
+            }
+            table.append("|").append(formatCell(String.valueOf(provision.getProvision()), columnWidth)).append("\n");
+        }
+
+        table.repeat("-", columnWidth * totalColumns + sortedCustomers.size() + 1).append("\n");
+        table.append(formatCell("Order", columnWidth));
+        for (Customer customer : sortedCustomers) {
+            table.append("|").append(formatCell(String.valueOf(customer.getOrder()), columnWidth));
+        }
+        table.append("|").append(formatCell("", columnWidth));
+
+        return table.toString();
+    }
+
+    private static String findCost(Provision provision, Customer customer) {
+        for (Map.Entry<Integer, Customer> entry : provision.getCosts().entrySet()) {
+            if (entry.getValue().getId() == customer.getId()) {
+                return String.valueOf(entry.getKey());
+            }
+        }
+        return "-";
+    }
+
+    private static String formatCell(String value, int width) {
+        return String.format("%" + width + "s", value);
     }
 }
