@@ -1,3 +1,5 @@
+package algorithms;
+
 import structure.Customer;
 import structure.Graph;
 import structure.Provision;

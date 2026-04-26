@@ -26,6 +26,9 @@ public class Graph {
     public Map<Integer, Provision> getProvisions() { return Collections.unmodifiableMap(this.provisions); }
     public Map<Integer, Customer> getCustomers() { return Collections.unmodifiableMap(this.customers); }
 
+    public Provision getProvision(int id) { return this.provisions.get(id); }
+    public Customer getCustomer(int id) { return this.customers.get(id); }
+
     public void addProvision(Provision provision){ this.provisions.put(provision.getId(), provision); }
     public void addCustomer(Customer customer){ this.customers.put(customer.getId(), customer); }
 
