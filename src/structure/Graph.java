@@ -52,7 +52,7 @@ public class Graph {
         for (Provision provision : sortedProvisions) {
             table.append(formatCell(provision.getName(), columnWidth));
             for (Customer customer : sortedCustomers) {
-                table.append("|").append(formatCell(findCost(provision, customer), columnWidth));
+                table.append("|").append(formatCell(formatShipmentAndCost(provision, customer), columnWidth));
             }
             table.append("|").append(formatCell(String.valueOf(provision.getProvision()), columnWidth)).append("\n");
         }
@@ -74,6 +74,12 @@ public class Graph {
             }
         }
         return "-";
+    }
+
+    private static String formatShipmentAndCost(Provision provision, Customer customer) {
+        Integer shipment = provision.getShippings().get(customer);
+        String shipmentValue = shipment == null ? "-" : String.valueOf(shipment);
+        return shipmentValue + "(" + findCost(provision, customer) + ")";
     }
 
     private static String formatCell(String value, int width) {
