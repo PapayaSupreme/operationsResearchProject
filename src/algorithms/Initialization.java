@@ -6,13 +6,13 @@ import structure.Provision;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 public class Initialization {
     /**
      * This method implements the North-West corner method for initializing a transportation problem.
+     * Complexity: O(P + C)
      *
      * @param g (Graph) - the graph to be worked on
      */
@@ -63,6 +63,11 @@ public class Initialization {
         }
     }
 
+    /**
+     * This method implements the Balas-Hammer first working solution algorithm.
+     * Complexity: O(P²C + PC²)
+     * @param g - The graph to be worked on.
+     */
     public static void BalasHammer(Graph g){
 
         if (g == null) {
@@ -93,10 +98,17 @@ public class Initialization {
             totalDemand += remainingDemand[j];
         }
 
-        boolean addDummyProvision = totalSupply < totalDemand;
-        boolean addDummyCustomer = totalDemand < totalSupply;
+        boolean addDummyCustomer;
+        try {
+            addDummyCustomer = !Tools.isBalanced(g);
+        } catch (IllegalArgumentException e) {
+            throw new UnsupportedOperationException(
+                    "BalasHammer supports only balanced graphs or graphs with supply greater than demand.",
+                    e
+            );
+        }
 
-        int[] rowToProvision = new int[provisions.size() + (addDummyProvision ? 1 : 0)];
+        int[] rowToProvision = new int[provisions.size()];
         int[] colToCustomer = new int[customers.size() + (addDummyCustomer ? 1 : 0)];
         for (int i = 0; i < provisions.size(); i++) {
             rowToProvision[i] = i;
@@ -105,28 +117,18 @@ public class Initialization {
             colToCustomer[j] = j;
         }
 
-        int workingSupplyTotal = totalSupply;
-        int workingDemandTotal = totalDemand;
-        if (addDummyProvision) {
-            rowToProvision[rowToProvision.length - 1] = -1;
-            workingSupplyTotal = totalDemand;
-        }
         if (addDummyCustomer) {
             colToCustomer[colToCustomer.length - 1] = -1;
-            workingDemandTotal = totalSupply;
         }
 
-        int[][] costs = buildCostMatrix(provisions, customers, addDummyProvision, addDummyCustomer);
+        int[][] costs = buildCostMatrix(provisions, customers, addDummyCustomer);
 
         int[] workingSupply = new int[rowToProvision.length];
         int[] workingDemand = new int[colToCustomer.length];
         System.arraycopy(remainingSupply, 0, workingSupply, 0, provisions.size());
         System.arraycopy(remainingDemand, 0, workingDemand, 0, customers.size());
-        if (addDummyProvision) {
-            workingSupply[workingSupply.length - 1] = workingSupplyTotal - totalSupply;
-        }
         if (addDummyCustomer) {
-            workingDemand[workingDemand.length - 1] = workingDemandTotal - totalDemand;
+            workingDemand[workingDemand.length - 1] = totalSupply - totalDemand;
         }
 
         boolean[] activeRows = new boolean[rowToProvision.length];
@@ -141,19 +143,19 @@ public class Initialization {
         while (hasActive(activeRows) && hasActive(activeCols)) {
             Selection bestSelection = null;
 
-            for (int i = 0; i < provisions.size(); i++) {
+            for (int i = 0; i < activeRows.length; i++) {
                 if (!activeRows[i]) {
                     continue;
                 }
-                Selection rowSelection = evaluateRow(i, costs, remainingSupply, remainingDemand, activeCols);
+                Selection rowSelection = evaluateRow(i, costs, workingSupply, workingDemand, activeCols);
                 bestSelection = selectBetter(bestSelection, rowSelection);
             }
 
-            for (int j = 0; j < customers.size(); j++) {
+            for (int j = 0; j < activeCols.length; j++) {
                 if (!activeCols[j]) {
                     continue;
                 }
-                Selection columnSelection = evaluateColumn(j, costs, remainingSupply, remainingDemand, activeRows);
+                Selection columnSelection = evaluateColumn(j, costs, workingSupply, workingDemand, activeRows);
                 bestSelection = selectBetter(bestSelection, columnSelection);
             }
 
@@ -180,8 +182,8 @@ public class Initialization {
         }
     }
 
-    private static int[][] buildCostMatrix(List<Provision> provisions, List<Customer> customers, boolean addDummyProvision, boolean addDummyCustomer) {
-        int[][] costs = new int[provisions.size() + (addDummyProvision ? 1 : 0)][customers.size() + (addDummyCustomer ? 1 : 0)];
+    private static int[][] buildCostMatrix(List<Provision> provisions, List<Customer> customers, boolean addDummyCustomer) {
+        int[][] costs = new int[provisions.size()][customers.size() + (addDummyCustomer ? 1 : 0)];
 
         for (int i = 0; i < provisions.size(); i++) {
             Provision provision = provisions.get(i);
@@ -195,14 +197,13 @@ public class Initialization {
                 }
                 costs[i][j] = cost;
             }
-            if (addDummyCustomer) {
-                costs[i][costs[0].length - 1] = 0;
-            }
         }
 
-        if (addDummyProvision) {
-            int dummyRowIndex = costs.length - 1;
-            Arrays.fill(costs[dummyRowIndex], 0);
+        if (addDummyCustomer) {
+            int dummyColumnIndex = costs[0].length - 1;
+            for (int i = 0; i < costs.length; i++) {
+                costs[i][dummyColumnIndex] = 0;
+            }
         }
 
         return costs;

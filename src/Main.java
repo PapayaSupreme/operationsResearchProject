@@ -28,6 +28,9 @@ void main() {
                 if (selectedGraph != null) {
                     System.out.println("Loaded graph: " + selectedGraph.getName());
                     System.out.println(selectedGraph);
+                    if (!Tools.isBalanced(selectedGraph)){
+                        System.out.println("Note : Graph is unbalanced.");
+                    }
                 }
                 break;
             case "2":
