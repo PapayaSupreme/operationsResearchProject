@@ -4,6 +4,7 @@ import structure.Customer;
 import structure.Graph;
 import structure.Provision;
 
+import java.util.List;
 import java.util.Optional;
 
 public class Tools {
@@ -54,5 +55,32 @@ public class Tools {
         }
 
         return isNotEmpty ? Optional.of(totalCost) :  Optional.empty();
+    }
+
+    public static int[][] buildCostMatrix(List<Provision> provisions, List<Customer> customers, boolean addDummyCustomer) {
+        int[][] costs = new int[provisions.size()][customers.size() + (addDummyCustomer ? 1 : 0)];
+
+        for (int i = 0; i < provisions.size(); i++) {
+            Provision provision = provisions.get(i);
+            for (int j = 0; j < customers.size(); j++) {
+                Customer customer = customers.get(j);
+                Integer cost = provision.getCosts().get(customer);
+                if (cost == null) {
+                    throw new IllegalStateException(
+                            "Missing cost for provision " + provision.getName() + " and customer " + customer.getName() + "."
+                    );
+                }
+                costs[i][j] = cost;
+            }
+        }
+
+        if (addDummyCustomer) {
+            int dummyColumnIndex = costs[0].length - 1;
+            for (int i = 0; i < costs.length; i++) {
+                costs[i][dummyColumnIndex] = 0;
+            }
+        }
+
+        return costs;
     }
 }

@@ -10,7 +10,7 @@
 2. Run the main application:
 
 ```
-./src/app/Main.java
+./src/Main.java
 ```
 
 [Questions / Enquiries](mailto:pablo.ferreiraa10@gmail.com)
