@@ -7,7 +7,6 @@ import structure.Provision;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
 public class Initialization {
     /**
@@ -189,7 +188,7 @@ public class Initialization {
             Provision provision = provisions.get(i);
             for (int j = 0; j < customers.size(); j++) {
                 Customer customer = customers.get(j);
-                Integer cost = findCost(provision, customer);
+                Integer cost = provision.getCosts().get(customer);
                 if (cost == null) {
                     throw new IllegalStateException(
                             "Missing cost for provision " + provision.getName() + " and customer " + customer.getName() + "."
@@ -207,15 +206,6 @@ public class Initialization {
         }
 
         return costs;
-    }
-
-    private static Integer findCost(Provision provision, Customer customer) {
-        for (Map.Entry<Integer, Customer> entry : provision.getCosts().entrySet()) {
-            if (entry.getValue().getId() == customer.getId()) {
-                return entry.getKey();
-            }
-        }
-        return null;
     }
 
     private static Selection evaluateRow(int rowIndex, int[][] costs, int[] remainingSupply, int[] remainingDemand, boolean[] activeCols) {
@@ -314,21 +304,10 @@ public class Initialization {
         return false;
     }
 
-    private static final class Selection {
-        private final boolean isRowChoice;
-        private final int rowIndex;
-        private final int columnIndex;
-        private final int penalty;
-        private final int cheapestCost;
-        private final int allocation;
-
-        private Selection(boolean isRowChoice, int rowIndex, int columnIndex, int penalty, int cheapestCost, int allocation) {
-            this.isRowChoice = isRowChoice;
-            this.rowIndex = rowIndex;
-            this.columnIndex = columnIndex;
-            this.penalty = penalty;
-            this.cheapestCost = cheapestCost;
-            this.allocation = allocation;
-        }
-    }
+    private record Selection(boolean isRowChoice,
+                             int rowIndex,
+                             int columnIndex,
+                             int penalty,
+                             int cheapestCost,
+                             int allocation) {}
 }

@@ -18,7 +18,8 @@ void main() {
         System.out.println("2. Check if it's balanced");
         System.out.println("3. Initial Northwest");
         System.out.println("4. Initial BalasHammer");
-        System.out.println("5. Exit");
+        System.out.println("5. Compute total cost for a transportation proposition");
+        System.out.println("0. Exit");
         System.out.print("Choose an option: ");
 
         String choice = scanner.nextLine().trim();
@@ -49,10 +50,16 @@ void main() {
                 System.out.println(selectedGraph);
                 break;
             case "5":
+                System.out.println("Computing total cost for this transportation proposition...");
+                int totalCost = Tools.totalCost(selectedGraph);
+                System.out.println("Done.");
+                System.out.println("Total cost for this proposition: " + totalCost);
+                break;
+            case "0":
                 System.out.println("Exiting...");
                 return;
             default:
-                System.out.println("Invalid option. Please choose 1 to 5.");
+                System.out.println("Invalid option. Please choose 0 to 5.");
         }
     }
 }

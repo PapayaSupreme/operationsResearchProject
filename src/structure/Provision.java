@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Provision extends Vertex {
-    private final Map<Integer, Customer> costs = new HashMap<>();
+    private final Map<Customer, Integer> costs = new HashMap<>();
     private final Map<Customer, Integer> shippings = new HashMap<>();
     private int provision;
 
@@ -15,13 +15,13 @@ public class Provision extends Vertex {
     }
 
     public int getProvision() { return this.provision; }
-    public Map<Integer, Customer> getCosts() { return Collections.unmodifiableMap(this.costs); }
+    public Map<Customer, Integer> getCosts() { return Collections.unmodifiableMap(this.costs); }
     public Map<Customer, Integer> getShippings() { return Collections.unmodifiableMap(this.shippings); }
 
     public void setProvision(int provision){ this.provision = provision; }
 
-    public void addEdge(int cost, Customer customer){ // obviously only used in init, so remove makes no sense
-        this.costs.put(cost, customer);
+    public void addEdge(Customer customer, int cost){ // obviously only used in init, so remove makes no sense
+        this.costs.put(customer, cost);
     }
 
     public void addShipment(Customer customer, int quantity){

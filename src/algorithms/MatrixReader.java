@@ -94,7 +94,7 @@ public class MatrixReader {
             for (int i = 0; i < provisionCount; i++) {
                 Provision provision = new Provision("P" + (i + 1), provisionAmounts[i]);
                 for (int j = 0; j < customerCount; j++) {
-                    provision.addEdge(costs[i][j], customers[j]);
+                    provision.addEdge(customers[j], costs[i][j]);
                 }
                 graph.addProvision(provision);
             }

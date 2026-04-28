@@ -8,6 +8,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Graph {
     private final String name;
@@ -36,8 +38,13 @@ public class Graph {
     public String toString() {
         List<Provision> sortedProvisions = new ArrayList<>(this.provisions.values());
         List<Customer> sortedCustomers = new ArrayList<>(this.customers.values());
-        sortedProvisions.sort(Comparator.comparing(Provision::getName));
-        sortedCustomers.sort(Comparator.comparing(Customer::getName));
+        // Use numeric-aware sorting so names like C2 come before C11
+        sortedProvisions.sort(Comparator
+                .comparingInt((Provision p) -> extractNumberFromName(p.getName()))
+                .thenComparing(Provision::getName));
+        sortedCustomers.sort(Comparator
+                .comparingInt((Customer c) -> extractNumberFromName(c.getName()))
+                .thenComparing(Customer::getName));
 
         int columnWidth = 11; //static width, if we have huge provisions then it overflows careful
         StringBuilder table = new StringBuilder();
@@ -70,22 +77,27 @@ public class Graph {
         return table.toString();
     }
 
-    private static String findCost(Provision provision, Customer customer) {
-        for (Map.Entry<Integer, Customer> entry : provision.getCosts().entrySet()) {
-            if (entry.getValue().getId() == customer.getId()) {
-                return String.valueOf(entry.getKey());
-            }
-        }
-        return "-";
-    }
-
     private static String formatShipmentAndCost(Provision provision, Customer customer) {
         Integer shipment = provision.getShippings().get(customer);
         String shipmentValue = shipment == null ? "-" : String.valueOf(shipment);
-        return shipmentValue + "(" + findCost(provision, customer) + ")";
+        return shipmentValue + "(" + provision.getCosts().get(customer) + ")";
     }
 
     private static String formatCell(String value, int width) {
         return String.format("%" + width + "s", value);
+    }
+
+    // Extract the first integer found in a name (e.g. "C11" -> 11). If no integer found return Integer.MAX_VALUE
+    private static int extractNumberFromName(String name) {
+        if (name == null) return Integer.MAX_VALUE;
+        Matcher m = Pattern.compile("(\\d+)").matcher(name);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(1));
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
+        return Integer.MAX_VALUE;
     }
 }

@@ -37,4 +37,19 @@ public class Tools {
             throw new IllegalArgumentException("Graph cannot have more orders than provisions.");
         }
     }
+
+    public static int totalCost(Graph g){
+        if (g == null) {
+            throw new IllegalArgumentException("Graph cannot be null.");
+        }
+
+        int totalCost = 0;
+        for (Provision p : g.getProvisions().values()){
+            for (Customer shippedTo : p.getShippings().keySet()){
+                totalCost += p.getCosts().get(shippedTo);
+            }
+        }
+
+        return totalCost;
+    }
 }
