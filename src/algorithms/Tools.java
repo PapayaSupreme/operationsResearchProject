@@ -4,6 +4,8 @@ import structure.Customer;
 import structure.Graph;
 import structure.Provision;
 
+import java.util.Optional;
+
 public class Tools {
     /**
      * This method implements a balance check for a given Graph g. Will return either true or false,
@@ -38,18 +40,19 @@ public class Tools {
         }
     }
 
-    public static int totalCost(Graph g){
+    public static Optional<Integer> totalCost(Graph g){
         if (g == null) {
             throw new IllegalArgumentException("Graph cannot be null.");
         }
-
+        boolean isNotEmpty = false;
         int totalCost = 0;
         for (Provision p : g.getProvisions().values()){
             for (Customer shippedTo : p.getShippings().keySet()){
+                isNotEmpty = true;
                 totalCost += p.getCosts().get(shippedTo);
             }
         }
 
-        return totalCost;
+        return isNotEmpty ? Optional.of(totalCost) :  Optional.empty();
     }
 }

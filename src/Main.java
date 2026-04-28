@@ -51,9 +51,14 @@ void main() {
                 break;
             case "5":
                 System.out.println("Computing total cost for this transportation proposition...");
-                int totalCost = Tools.totalCost(selectedGraph);
+                Optional<Integer> totalCost = Tools.totalCost(selectedGraph);
                 System.out.println("Done.");
-                System.out.println("Total cost for this proposition: " + totalCost);
+                if (totalCost.isEmpty()){
+                    System.out.println("Make a proposition first.");
+                }
+                else{
+                    System.out.println("Total cost for this proposition: " + totalCost.get());
+                }
                 break;
             case "0":
                 System.out.println("Exiting...");
