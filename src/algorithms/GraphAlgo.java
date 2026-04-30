@@ -273,14 +273,14 @@ public final class GraphAlgo {
         if (from instanceof Provision && to instanceof Customer) {
             Provision p = (Provision) from;
             Customer c = (Customer) to;
-            p.getShippings().put(c, value);
+            p.addShipment(c, value);
             return;
         }
 
         if (from instanceof Customer && to instanceof Provision) {
             Customer c = (Customer) from;
             Provision p = (Provision) to;
-            p.getShippings().put(c, value);
+            p.addShipment(c, value);
             return;
         }
 
