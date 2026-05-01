@@ -2,6 +2,7 @@ import algorithms.Initialization;
 import algorithms.Tools;
 import structure.Graph;
 import utilities.MenuHelper;
+import utilities.Timer;
 
 import java.util.Scanner;
 
@@ -39,7 +40,10 @@ void main() {
                 break;
             case "3":
                 System.out.println("Computing North-West...");
+                long t0 = System.nanoTime();
                 Initialization.NorthWest(selectedGraph);
+                long t1 = System.nanoTime();
+                Timer.runTimer("North-West", t0, t1);
                 System.out.println("Done.");
                 System.out.println(selectedGraph);
                 break;
