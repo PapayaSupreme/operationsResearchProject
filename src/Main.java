@@ -16,8 +16,8 @@ public class Main {
     public static void main(String[] args) {
         Graph selectedGraph = null;
         Scanner scanner = new Scanner(System.in);
-
-        while (true) {
+        boolean end = false;
+        while (!end) {
             System.out.println();
             System.out.println("=== Transportation Menu ===");
             System.out.println("Selected graph: " +
@@ -35,7 +35,7 @@ public class Main {
             System.out.print("Choose an option: ");
 
             String choice = scanner.nextLine().trim();
-
+            long t0, t1;
             switch (choice) {
                 case "1":
                     selectedGraph = MenuHelper.selectGraph(scanner);
@@ -55,9 +55,13 @@ public class Main {
                         break;
                     }
 
+                    t0 = System.nanoTime();
+                    boolean isBalanced = Tools.isBalanced(selectedGraph);
+                    t1 = System.nanoTime();
+                    Timer.runTimer("Balance check", t0, t1);
                     System.out.println(
                             "Graph is balanced (provisions - orders = 0): "
-                                    + Tools.isBalanced(selectedGraph)
+                                    + isBalanced
                     );
                     break;
 
@@ -68,9 +72,9 @@ public class Main {
                     }
 
                     System.out.println("Computing North-West...");
-                    long t0 = System.nanoTime();
+                    t0 = System.nanoTime();
                     Initialization.NorthWest(selectedGraph);
-                    long t1 = System.nanoTime();
+                    t1 = System.nanoTime();
                     Timer.runTimer("North-West initial proposition", t0, t1);
                     System.out.println("Done.");
                     System.out.println(selectedGraph);
@@ -83,7 +87,10 @@ public class Main {
                     }
 
                     System.out.println("Computing Balas-Hammer...");
+                    t0 = System.nanoTime();
                     Initialization.BalasHammer(selectedGraph);
+                    t1 = System.nanoTime();
+                    Timer.runTimer("Balas-Hammer initial proposition", t0, t1);
                     System.out.println("Done.");
                     System.out.println(selectedGraph);
                     break;
@@ -95,8 +102,10 @@ public class Main {
                     }
 
                     System.out.println("Computing total cost...");
+                    t0 = System.nanoTime();
                     Optional<Integer> totalCost = Tools.totalCost(selectedGraph);
-
+                    t1 = System.nanoTime();
+                    Timer.runTimer("Total cost compute", t0, t1);
                     if (totalCost.isEmpty()) {
                         System.out.println("Make a proposition first.");
                     } else {
@@ -110,7 +119,11 @@ public class Main {
                         break;
                     }
 
-                    if (GraphAlgo.isAcyclic(selectedGraph)) {
+                    t0 = System.nanoTime();
+                    boolean isAcyclic = GraphAlgo.isAcyclic(selectedGraph);
+                    t1 = System.nanoTime();
+                    Timer.runTimer("Acyclic check", t0, t1);
+                    if (isAcyclic) {
                         System.out.println("The transportation proposition is acyclic.");
                     } else {
                         System.out.println("A cycle has been detected.");
@@ -123,7 +136,12 @@ public class Main {
                         break;
                     }
 
-                    if (GraphAlgo.isConnected(selectedGraph)) {
+                    t0 = System.nanoTime();
+                    boolean isConnected = GraphAlgo.isConnected(selectedGraph);
+                    t1 = System.nanoTime();
+                    Timer.runTimer("Connected check", t0, t1);
+
+                    if (isConnected) {
                         System.out.println("The transportation proposition is connected.");
                     } else {
                         System.out.println("The transportation proposition is not connected.");
@@ -136,10 +154,13 @@ public class Main {
                         break;
                     }
 
+                    t0 = System.nanoTime();
                     Map.Entry<Provision, Customer> entering =
                             GraphAlgo.findEnteringEdge(selectedGraph);
 
                     if (entering == null) {
+                        t1 = System.nanoTime();
+                        Timer.runTimer("One optimization iteration", t0, t1);
                         System.out.println("Solution is already optimal.");
                         break;
                     }
@@ -158,6 +179,9 @@ public class Main {
 
                         GraphAlgo.maximizeCycle(selectedGraph, cycle);
 
+                        t1 = System.nanoTime();
+                        Timer.runTimer("One optimization iteration", t0, t1);
+
                         System.out.println("After optimization:");
                         System.out.println(selectedGraph);
 
@@ -173,6 +197,7 @@ public class Main {
                         break;
                     }
 
+                    t0 = System.nanoTime();
                     int iteration = 0;
 
                     while (true) {
@@ -212,17 +237,27 @@ public class Main {
                         }
                     }
 
+                    t1 = System.nanoTime();
+                    Timer.runTimer("Transportation proposition optimization", t0, t1);
+
                     System.out.println("Final solution:");
                     System.out.println(selectedGraph);
 
                     Optional<Integer> finalCost =
                             Tools.totalCost(selectedGraph);
 
-                    if (finalCost.isPresent()) {
-                        System.out.println("Final total cost: "
-                                + finalCost.get());
-                    }
+                    finalCost.ifPresent(integer -> System.out.println("Final total cost: "
+                            + integer));
+                    break;
 
+                case "0":
+                    end = true;
+                    System.out.println("Exiting...");
+                    break;
+
+                default:
+                    System.out.println("Choose a valid option.");
+                    break;
             }
         }
     }
