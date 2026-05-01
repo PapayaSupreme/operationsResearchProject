@@ -68,7 +68,10 @@ public class Main {
                     }
 
                     System.out.println("Computing North-West...");
+                    long t0 = System.nanoTime();
                     Initialization.NorthWest(selectedGraph);
+                    long t1 = System.nanoTime();
+                    Timer.runTimer("North-West initial proposition", t0, t1);
                     System.out.println("Done.");
                     System.out.println(selectedGraph);
                     break;
@@ -175,49 +178,9 @@ public class Main {
                     while (true) {
                         Map.Entry<Provision, Customer> step =
                                 GraphAlgo.findEnteringEdge(selectedGraph);
-                    if (!Tools.isBalanced(selectedGraph)){
-                        System.out.println("Note : Graph is unbalanced.");
-                    }
-                }
-                break;
-            case "2":
-                System.out.println("Graph is balanced (provisions - orders = 0) : " + Tools.isBalanced(selectedGraph));
-                break;
-            case "3":
-                System.out.println("Computing North-West...");
-                long t0 = System.nanoTime();
-                Initialization.NorthWest(selectedGraph);
-                long t1 = System.nanoTime();
-                Timer.runTimer("North-West", t0, t1);
-                System.out.println("Done.");
-                System.out.println(selectedGraph);
-                break;
-            case "4":
-                System.out.println("Computing Balas-Hammer...");
-                Initialization.BalasHammer(selectedGraph);
-                System.out.println("Done.");
-                System.out.println(selectedGraph);
-                break;
-            case "5":
-                System.out.println("Computing total cost for this transportation proposition...");
-                Optional<Integer> totalCost = Tools.totalCost(selectedGraph);
-                System.out.println("Done.");
-                if (totalCost.isEmpty()){
-                    System.out.println("Make a proposition first.");
-                }
-                else{
-                    System.out.println("Total cost for this proposition: " + totalCost.get());
-                }
-                break;
-            case "0":
-                System.out.println("Exiting...");
-                return;
-            default:
-                System.out.println("Invalid option. Please choose 0 to 5.");
-        }
-    }
-}
-
+                        if (!Tools.isBalanced(selectedGraph)) {
+                            System.out.println("Note : Graph is unbalanced.");
+                        }
                         if (step == null) {
                             System.out.println("Optimal solution reached.");
                             break;
@@ -259,15 +222,7 @@ public class Main {
                         System.out.println("Final total cost: "
                                 + finalCost.get());
                     }
-                    break;
 
-                case "0":
-                    System.out.println("Exiting...");
-                    scanner.close();
-                    return;
-
-                default:
-                    System.out.println("Invalid option. Please choose 0 to 9.");
             }
         }
     }
