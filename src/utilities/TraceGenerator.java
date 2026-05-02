@@ -111,13 +111,16 @@ public class TraceGenerator {
             boolean balanced = Tools.isBalanced(graph);
             System.out.println("Graph is balanced: " + balanced);
             System.out.println();
-            
-           System.out.println("--- INITIALIZATION: " + method + " ---");
+
+
+            System.out.println("--- INITIALIZATION: " + method + " ---");
+            long t0 = System.nanoTime();
             if (method.equalsIgnoreCase("NW")) {
                 Initialization.NorthWest(graph);
             } else {
                 Initialization.BalasHammer(graph);
             }
+            long total = System.nanoTime() - t0;
             GraphAlgo.isConnected(graph);  
             System.out.println(graph);
             
@@ -138,8 +141,9 @@ public class TraceGenerator {
             int maxIterations = 100;
             
             while (iteration < maxIterations) {
+                t0 = System.nanoTime();
                 Map.Entry<Provision, Customer> entering = GraphAlgo.findEnteringEdge(graph);
-                
+                total += System.nanoTime() - t0;
                 if (entering == null) {
                     System.out.println("*** OPTIMAL SOLUTION REACHED ***");
                     break;
@@ -151,8 +155,11 @@ public class TraceGenerator {
                 
                 System.out.println("--- Iteration " + iteration + " ---");
                 System.out.println("Entering edge: " + p.getName() + " -> " + c.getName());
-                
+
+                t0 = System.nanoTime();
                 Map<Object, Integer> potentials = GraphAlgo.computePotentials(graph);
+                total = System.nanoTime() - t0;
+
                 System.out.println("Potentials:");
                 for (Provision prov : graph.getProvisions().values()) {
                     if (potentials.containsKey(prov)) {
@@ -166,15 +173,23 @@ public class TraceGenerator {
                 }
                 
                 try {
+                    t0 = System.nanoTime();
                     List<Object> cycle = GraphAlgo.buildCycle(graph, p, c);
+                    total = System.nanoTime() - t0;
+
                     System.out.println("Cycle: " + formatCycle(cycle));
-                    
+
+                    t0 = System.nanoTime();
                     GraphAlgo.maximizeCycle(graph, cycle);
-                    
+                    total = System.nanoTime() - t0;
+
                     System.out.println("Updated transportation:");
                     System.out.println(graph);
-                    
+
+                    t0 = System.nanoTime();
                     Optional<Integer> currentCost = Tools.totalCost(graph);
+                    total = System.nanoTime() - t0;
+
                     currentCost.ifPresent(integer -> System.out.println("Current total cost: " + integer));
                     
                 } catch (Exception e) {
@@ -202,6 +217,7 @@ public class TraceGenerator {
             System.out.println();
             System.out.println("Total iterations: " + iteration);
             System.out.println("=".repeat(80));
+            System.out.println("EXECUTION TIME: " + total + " ms.");
             
         } finally {
             trace.stopTrace();
