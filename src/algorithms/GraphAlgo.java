@@ -70,29 +70,98 @@ public final class GraphAlgo {
         return true;
     }
 
+    /**
+     * Check if graph is connected, including zero-flow edges.
+     * PUBLIC so TraceGenerator can use it.
+     */
+    public static boolean isConnectedIncludingZeroFlow(Graph graph) {
+        if (graph == null) {
+            return false;
+        }
+
+        List<Set<Object>> components = findConnectedComponentsIncludingZeroFlow(graph);
+        return components.size() <= 1;
+    }
+
+    /**
+     * Find all connected components, including zero-flow edges.
+     */
+    private static List<Set<Object>> findConnectedComponentsIncludingZeroFlow(Graph graph) {
+        List<Set<Object>> components = new ArrayList<>();
+        Set<Object> visited = new HashSet<>();
+
+        List<Object> allVertices = new ArrayList<>();
+        allVertices.addAll(graph.getProvisions().values());
+        allVertices.addAll(graph.getCustomers().values());
+
+        for (Object vertex : allVertices) {
+            if (!visited.contains(vertex)) {
+                Set<Object> component = new HashSet<>();
+                Queue<Object> queue = new LinkedList<>();
+
+                queue.add(vertex);
+                visited.add(vertex);
+                component.add(vertex);
+
+                while (!queue.isEmpty()) {
+                    Object current = queue.poll();
+
+                    for (Object neighbor : getNeighborsIncludingZeroFlow(graph, current)) {
+                        if (!visited.contains(neighbor)) {
+                            visited.add(neighbor);
+                            component.add(neighbor);
+                            queue.add(neighbor);
+                        }
+                    }
+                }
+
+                components.add(component);
+            }
+        }
+
+        return components;
+    }
+
+    /**
+     * Get all neighbors of a vertex, INCLUDING zero-flow edges.
+     */
+    private static List<Object> getNeighborsIncludingZeroFlow(Graph graph, Object vertex) {
+        List<Object> neighbors = new ArrayList<>();
+
+        if (vertex instanceof Provision p) {
+            neighbors.addAll(p.getShippings().keySet());
+        } else if (vertex instanceof Customer c) {
+            for (Provision p : graph.getProvisions().values()) {
+                if (p.getShippings().containsKey(c)) {
+                    neighbors.add(p);
+                }
+            }
+        }
+
+        return neighbors;
+    }
+
     private static List<Object> getNeighbors(Graph graph, Object vertex) {
         List<Object> neighbors = new ArrayList<Object>();
 
-        if (vertex instanceof Provision) {
-            Provision provision = (Provision) vertex;
+        if (vertex instanceof Provision provision) {
 
             for (Map.Entry<Customer, Integer> entry
                     : provision.getShippings().entrySet()) {
 
                 Integer quantity = entry.getValue();
 
-                if (quantity != null && quantity.intValue() > 0) {
+                if (quantity != null && quantity > 0) {
                     neighbors.add(entry.getKey());
                 }
             }
-        } else if (vertex instanceof Customer) {
-            Customer customer = (Customer) vertex;
+        } else if (vertex instanceof Customer customer) {
 
             for (Provision provision : graph.getProvisions().values()) {
                 Integer quantity =
                         provision.getShippings().get(customer);
 
-                if (quantity != null && quantity.intValue() > 0) {
+                if (quantity != null && quantity > 0) {
                     neighbors.add(provision);
                 }
             }
@@ -117,7 +186,7 @@ public final class GraphAlgo {
         Set<Object> visited = new HashSet<Object>();
         Queue<Object> queue = new LinkedList<Object>();
 
-        Object start = allVertices.get(0);
+        Object start = allVertices.getFirst();
         visited.add(start);
         queue.add(start);
 
@@ -198,7 +267,7 @@ public final class GraphAlgo {
         cycle.add(start);
         cycle.addAll(path);
 
-        if (cycle.size() < 4 || !cycle.get(cycle.size() - 1).equals(start)) {
+        if (cycle.size() < 4 || !cycle.getLast().equals(start)) {
             throw new IllegalStateException("Invalid cycle built for entering edge.");
         }
 
@@ -275,15 +344,11 @@ public final class GraphAlgo {
             Object from,
             Object to) {
 
-        if (from instanceof Provision && to instanceof Customer) {
-            Provision p = (Provision) from;
-            Customer c = (Customer) to;
+        if (from instanceof Provision p && to instanceof Customer c) {
             return p.getShippings().getOrDefault(c, 0);
         }
 
-        if (from instanceof Customer && to instanceof Provision) {
-            Customer c = (Customer) from;
-            Provision p = (Provision) to;
+        if (from instanceof Customer c && to instanceof Provision p) {
             return p.getShippings().getOrDefault(c, 0);
         }
 
@@ -295,16 +360,12 @@ public final class GraphAlgo {
             Object to,
             int value) {
 
-        if (from instanceof Provision && to instanceof Customer) {
-            Provision p = (Provision) from;
-            Customer c = (Customer) to;
+        if (from instanceof Provision p && to instanceof Customer c) {
             p.addShipment(c, value);
             return;
         }
 
-        if (from instanceof Customer && to instanceof Provision) {
-            Customer c = (Customer) from;
-            Provision p = (Provision) to;
+        if (from instanceof Customer c && to instanceof Provision p) {
             p.addShipment(c, value);
             return;
         }
@@ -316,16 +377,12 @@ public final class GraphAlgo {
             Object from,
             Object to) {
 
-        if (from instanceof Provision && to instanceof Customer) {
-            Provision p = (Provision) from;
-            Customer c = (Customer) to;
+        if (from instanceof Provision p && to instanceof Customer c) {
             p.removeShipment(c);
             return;
         }
 
-        if (from instanceof Customer && to instanceof Provision) {
-            Customer c = (Customer) from;
-            Provision p = (Provision) to;
+        if (from instanceof Customer c && to instanceof Provision p) {
             p.removeShipment(c);
             return;
         }
@@ -347,8 +404,7 @@ public final class GraphAlgo {
         while (!queue.isEmpty()) {
             Object current = queue.poll();
 
-            if (current instanceof Provision) {
-                Provision p = (Provision) current;
+            if (current instanceof Provision p) {
 
                 for (Map.Entry<Customer, Integer> entry
                         : p.getShippings().entrySet()) {
@@ -364,8 +420,7 @@ public final class GraphAlgo {
                     }
                 }
 
-            } else if (current instanceof Customer) {
-                Customer c = (Customer) current;
+            } else if (current instanceof Customer c) {
 
                 for (Provision p
                         : graph.getProvisions().values()) {
@@ -401,15 +456,13 @@ public final class GraphAlgo {
 
                 Integer shipping = p.getShippings().get(c);
 
-                if (shipping != null && shipping.intValue() > 0) {
+                if (shipping != null && shipping > 0) {
                     continue;
                 }
 
                 int cost = p.getCosts().get(c);
-                int u = potential.containsKey(p)
-                        ? potential.get(p) : 0;
-                int v = potential.containsKey(c)
-                        ? potential.get(c) : 0;
+                int u = potential.getOrDefault(p, 0);
+                int v = potential.getOrDefault(c, 0);
 
                 int delta = cost - (u + v);
 
