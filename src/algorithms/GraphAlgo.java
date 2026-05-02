@@ -185,15 +185,22 @@ public final class GraphAlgo {
             Object start,
             Object end) {
 
-        List<Object> path = findPath(graph, start, end);
+        // Build cycle as: start -> end -> ... -> start
+        // so the entering edge (start -> end) is always the first '+' edge.
+        List<Object> path = findPath(graph, end, start);
 
         if (path.isEmpty()) {
             throw new IllegalStateException(
                     "No path found between vertices.");
         }
 
-        List<Object> cycle = new ArrayList<Object>(path);
+        List<Object> cycle = new ArrayList<Object>();
         cycle.add(start);
+        cycle.addAll(path);
+
+        if (cycle.size() < 4 || !cycle.get(cycle.size() - 1).equals(start)) {
+            throw new IllegalStateException("Invalid cycle built for entering edge.");
+        }
 
         return cycle;
     }
@@ -206,14 +213,19 @@ public final class GraphAlgo {
             throw new IllegalArgumentException("Invalid cycle.");
         }
 
+        validateAlternatingCycle(cycle);
+
         int delta = Integer.MAX_VALUE;
 
         for (int i = 0; i < cycle.size() - 1; i++) {
             if (i % 2 == 1) {
                 int flow = getFlow(
-                        graph,
                         cycle.get(i),
                         cycle.get(i + 1));
+
+                if (flow <= 0) {
+                    throw new IllegalStateException("Invalid '-' edge in cycle: non-positive flow.");
+                }
 
                 delta = Math.min(delta, flow);
             }
@@ -228,24 +240,38 @@ public final class GraphAlgo {
             Object from = cycle.get(i);
             Object to = cycle.get(i + 1);
 
-            int currentFlow = getFlow(graph, from, to);
+            int currentFlow = getFlow(from, to);
 
             if (i % 2 == 0) {
-                setFlow(graph, from, to, currentFlow + delta);
+                setFlow(from, to, currentFlow + delta);
             } else {
                 int newFlow = currentFlow - delta;
 
                 if (newFlow == 0) {
-                    removeFlow(graph, from, to);
+                    removeFlow(from, to);
                 } else {
-                    setFlow(graph, from, to, newFlow);
+                    setFlow(from, to, newFlow);
                 }
             }
         }
     }
 
+    private static void validateAlternatingCycle(List<Object> cycle) {
+        for (int i = 0; i < cycle.size() - 1; i++) {
+            Object from = cycle.get(i);
+            Object to = cycle.get(i + 1);
+
+            boolean validEdge =
+                    (from instanceof Provision && to instanceof Customer)
+                            || (from instanceof Customer && to instanceof Provision);
+
+            if (!validEdge) {
+                throw new IllegalArgumentException("Invalid cycle: edges must alternate Provision/Customer.");
+            }
+        }
+    }
+
     private static int getFlow(
-            Graph graph,
             Object from,
             Object to) {
 
@@ -265,7 +291,6 @@ public final class GraphAlgo {
     }
 
     private static void setFlow(
-            Graph graph,
             Object from,
             Object to,
             int value) {
@@ -288,21 +313,20 @@ public final class GraphAlgo {
     }
 
     private static void removeFlow(
-            Graph graph,
             Object from,
             Object to) {
 
         if (from instanceof Provision && to instanceof Customer) {
             Provision p = (Provision) from;
             Customer c = (Customer) to;
-            p.getShippings().remove(c);
+            p.removeShipment(c);
             return;
         }
 
         if (from instanceof Customer && to instanceof Provision) {
             Customer c = (Customer) from;
             Provision p = (Provision) to;
-            p.getShippings().remove(c);
+            p.removeShipment(c);
             return;
         }
 
