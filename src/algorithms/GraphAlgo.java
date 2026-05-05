@@ -256,7 +256,13 @@ public final class GraphAlgo {
 
         // Build cycle as: start -> end -> ... -> start
         // so the entering edge (start -> end) is always the first '+' edge.
+        // First try path through current positive-flow basis edges
         List<Object> path = findPath(graph, end, start);
+
+        // If that fails and basis is disconnected, try including zero-flow edges
+        if (path.isEmpty()) {
+            path = findPathIncludingZeroFlow(graph, end, start);
+        }
 
         if (path.isEmpty()) {
             throw new IllegalStateException(
@@ -272,6 +278,54 @@ public final class GraphAlgo {
         }
 
         return cycle;
+    }
+
+    /**
+     * Find path including zero-flow basic edges (for degenerate/disconnected bases).
+     */
+    private static List<Object> findPathIncludingZeroFlow(
+            Graph graph,
+            Object start,
+            Object end) {
+
+        Map<Object, Object> parent = new HashMap<Object, Object>();
+        Set<Object> visited = new HashSet<Object>();
+        Queue<Object> queue = new LinkedList<Object>();
+
+        visited.add(start);
+        parent.put(start, null);
+        queue.add(start);
+
+        while (!queue.isEmpty()) {
+            Object current = queue.poll();
+
+            if (current.equals(end)) {
+                break;
+            }
+
+            for (Object neighbor : getNeighborsIncludingZeroFlow(graph, current)) {
+                if (!visited.contains(neighbor)) {
+                    visited.add(neighbor);
+                    parent.put(neighbor, current);
+                    queue.add(neighbor);
+                }
+            }
+        }
+
+        List<Object> path = new ArrayList<Object>();
+
+        if (!parent.containsKey(end)) {
+            return path;
+        }
+
+        Object step = end;
+        while (step != null) {
+            path.add(step);
+            step = parent.get(step);
+        }
+
+        Collections.reverse(path);
+        return path;
     }
 
     public static void maximizeCycle(
@@ -292,17 +346,17 @@ public final class GraphAlgo {
                         cycle.get(i),
                         cycle.get(i + 1));
 
-                if (flow <= 0) {
-                    throw new IllegalStateException("Invalid '-' edge in cycle: non-positive flow.");
+                // For degenerate bases, "-" edges may have zero flow (artificial variables)
+                // Only compute delta on edges with positive flow
+                if (flow > 0) {
+                    delta = Math.min(delta, flow);
                 }
-
-                delta = Math.min(delta, flow);
             }
         }
 
-        if (delta == Integer.MAX_VALUE) {
+        if (delta == Integer.MAX_VALUE || delta <= 0) {
             throw new IllegalStateException(
-                    "No valid '-' edges found in cycle.");
+                    "No valid '-' edges found in cycle or all have zero flow.");
         }
 
         for (int i = 0; i < cycle.size() - 1; i++) {

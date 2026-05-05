@@ -62,6 +62,9 @@ public class Initialization {
                 j++;
             }
         }
+
+        // Ensure basis is connected by adding zero-flow artificial edges if needed
+        ensureConnectedBasis(g, provisions, customers);
     }
 
     /**
@@ -181,6 +184,9 @@ public class Initialization {
                 activeCols[bestSelection.columnIndex] = false;
             }
         }
+
+        // Ensure basis is connected by adding zero-flow artificial edges if needed
+        ensureConnectedBasis(g, provisions, customers);
     }
 
     private static Selection evaluateRow(int rowIndex, int[][] costs, int[] remainingSupply, int[] remainingDemand, boolean[] activeCols) {
@@ -285,4 +291,97 @@ public class Initialization {
                              int penalty,
                              int cheapestCost,
                              int allocation) {}
+
+    /**
+     * Ensure the basis is connected by adding zero-flow artificial edges.
+     * This is necessary for stepping-stone to work on degenerate/disconnected bases.
+     * Strategy: Add edges between connected components to form a spanning tree.
+     */
+    private static void ensureConnectedBasis(Graph g, List<Provision> provisions, List<Customer> customers) {
+        // Check if basis is already connected
+        if (GraphAlgo.isConnectedIncludingZeroFlow(g)) {
+            return;
+        }
+
+        // Keep adding edges until connected
+        while (!GraphAlgo.isConnectedIncludingZeroFlow(g)) {
+            // Find two disconnected components
+            java.util.Set<Object> component1 = new java.util.HashSet<>();
+            java.util.Set<Object> visited = new java.util.HashSet<>();
+
+            // Start BFS from first provision
+            Provision startP = provisions.get(0);
+            java.util.Queue<Object> queue = new java.util.LinkedList<>();
+            queue.add(startP);
+            visited.add(startP);
+            component1.add(startP);
+
+            while (!queue.isEmpty()) {
+                Object current = queue.poll();
+
+                if (current instanceof Provision prov) {
+                    for (Customer c : prov.getShippings().keySet()) {
+                        if (!visited.contains(c)) {
+                            visited.add(c);
+                            component1.add(c);
+                            queue.add(c);
+                        }
+                    }
+                } else if (current instanceof Customer cust) {
+                    for (Provision prov : provisions) {
+                        if (prov.getShippings().containsKey(cust) && !visited.contains(prov)) {
+                            visited.add(prov);
+                            component1.add(prov);
+                            queue.add(prov);
+                        }
+                    }
+                }
+            }
+
+            // Find an unvisited vertex
+            Provision unvisitedP = null;
+            Customer unvisitedC = null;
+
+            for (Provision p : provisions) {
+                if (!visited.contains(p)) {
+                    unvisitedP = p;
+                    break;
+                }
+            }
+
+            for (Customer c : customers) {
+                if (!visited.contains(c)) {
+                    unvisitedC = c;
+                    break;
+                }
+            }
+
+            // Connect them
+            if (unvisitedP != null) {
+                // Find a customer in component1 to connect to
+                Customer connectedC = null;
+                for (Object obj : component1) {
+                    if (obj instanceof Customer) {
+                        connectedC = (Customer) obj;
+                        break;
+                    }
+                }
+                if (connectedC != null && unvisitedP.getShippings().get(connectedC) == null) {
+                    unvisitedP.addShipment(connectedC, 0);
+                }
+            } else if (unvisitedC != null) {
+                // Find a provision in component1 to connect to
+                Provision connectedP = null;
+                for (Object obj : component1) {
+                    if (obj instanceof Provision) {
+                        connectedP = (Provision) obj;
+                        break;
+                    }
+                }
+                if (connectedP != null && connectedP.getShippings().get(unvisitedC) == null) {
+                    connectedP.addShipment(unvisitedC, 0);
+                }
+            }
+        }
+    }
 }
