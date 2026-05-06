@@ -29,6 +29,8 @@ public class Initialization {
         provisions.sort(Comparator.comparingInt(Provision::getId));
         customers.sort(Comparator.comparingInt(Customer::getId));
 
+        ensureDummyCustomerIfNeeded(g, provisions, customers);
+
         for (Provision provision : provisions) {
             provision.clearShipments();
         }
@@ -84,6 +86,8 @@ public class Initialization {
         provisions.sort(Comparator.comparingInt(Provision::getId));
         customers.sort(Comparator.comparingInt(Customer::getId));
 
+        ensureDummyCustomerIfNeeded(g, provisions, customers);
+
         for (Provision provision : provisions) {
             provision.clearShipments();
         }
@@ -102,18 +106,8 @@ public class Initialization {
             totalDemand += remainingDemand[j];
         }
 
-        boolean addDummyCustomer;
-        try {
-            addDummyCustomer = !Tools.isBalanced(g);
-        } catch (IllegalArgumentException e) {
-            throw new UnsupportedOperationException(
-                    "BalasHammer supports only balanced graphs or graphs with supply greater than demand.",
-                    e
-            );
-        }
-
         int[] rowToProvision = new int[provisions.size()];
-        int[] colToCustomer = new int[customers.size() + (addDummyCustomer ? 1 : 0)];
+        int[] colToCustomer = new int[customers.size()];
         for (int i = 0; i < provisions.size(); i++) {
             rowToProvision[i] = i;
         }
@@ -121,19 +115,12 @@ public class Initialization {
             colToCustomer[j] = j;
         }
 
-        if (addDummyCustomer) {
-            colToCustomer[colToCustomer.length - 1] = -1;
-        }
-
-        int[][] costs = buildCostMatrix(provisions, customers, addDummyCustomer);
+        int[][] costs = buildCostMatrix(provisions, customers, false);
 
         int[] workingSupply = new int[rowToProvision.length];
         int[] workingDemand = new int[colToCustomer.length];
         System.arraycopy(remainingSupply, 0, workingSupply, 0, provisions.size());
         System.arraycopy(remainingDemand, 0, workingDemand, 0, customers.size());
-        if (addDummyCustomer) {
-            workingDemand[workingDemand.length - 1] = totalSupply - totalDemand;
-        }
 
         boolean[] activeRows = new boolean[rowToProvision.length];
         boolean[] activeCols = new boolean[colToCustomer.length];
@@ -291,6 +278,61 @@ public class Initialization {
                              int penalty,
                              int cheapestCost,
                              int allocation) {}
+
+    private static void ensureDummyCustomerIfNeeded(
+            Graph g,
+            List<Provision> provisions,
+            List<Customer> customers) {
+
+        boolean balanced;
+        try {
+            balanced = Tools.isBalanced(g);
+        } catch (IllegalArgumentException e) {
+            throw new UnsupportedOperationException(
+                    "Initialization supports only balanced graphs or graphs with supply greater than demand.",
+                    e
+            );
+        }
+
+        if (balanced) {
+            return;
+        }
+
+        int totalSupply = totalProvision(provisions);
+        int totalDemand = totalDemand(customers);
+
+        if (totalSupply < totalDemand) {
+            throw new UnsupportedOperationException(
+                    "Initialization supports only balanced graphs or graphs with supply greater than demand."
+            );
+        }
+
+        Customer dummy = new Customer("Dummy", totalSupply - totalDemand);
+        g.addCustomer(dummy);
+
+        for (Provision provision : provisions) {
+            provision.addEdge(dummy, 0);
+        }
+
+        customers.add(dummy);
+        customers.sort(Comparator.comparingInt(Customer::getId));
+    }
+
+    private static int totalProvision(List<Provision> provisions) {
+        int total = 0;
+        for (Provision provision : provisions) {
+            total += provision.getProvision();
+        }
+        return total;
+    }
+
+    private static int totalDemand(List<Customer> customers) {
+        int total = 0;
+        for (Customer customer : customers) {
+            total += customer.getOrder();
+        }
+        return total;
+    }
 
     /**
      * Ensure the basis is connected by adding zero-flow artificial edges.

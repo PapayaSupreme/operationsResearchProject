@@ -339,6 +339,7 @@ public final class GraphAlgo {
         validateAlternatingCycle(cycle);
 
         int delta = Integer.MAX_VALUE;
+        int leavingIndex = -1;
 
         for (int i = 0; i < cycle.size() - 1; i++) {
             if (i % 2 == 1) {
@@ -346,17 +347,41 @@ public final class GraphAlgo {
                         cycle.get(i),
                         cycle.get(i + 1));
 
-                // For degenerate bases, "-" edges may have zero flow (artificial variables)
-                // Only compute delta on edges with positive flow
+                if (flow < 0) {
+                    throw new IllegalStateException(
+                            "Cannot apply cycle: '-' edge has negative flow (" + flow + ")"
+                    );
+                }
+
+                if (flow == 0 && leavingIndex == -1) {
+                    leavingIndex = i;
+                }
+
                 if (flow > 0) {
                     delta = Math.min(delta, flow);
                 }
             }
         }
 
+        // Degenerate pivot: swap the zero-flow basic edge out of the basis
+        // without changing shipments.
+        if (leavingIndex != -1) {
+            setFlow(
+                    cycle.get(0),
+                    cycle.get(1),
+                    getFlow(cycle.get(0), cycle.get(1))
+            );
+            removeFlow(
+                    cycle.get(leavingIndex),
+                    cycle.get(leavingIndex + 1)
+            );
+            return;
+        }
+
         if (delta == Integer.MAX_VALUE || delta <= 0) {
             throw new IllegalStateException(
-                    "No valid '-' edges found in cycle or all have zero flow.");
+                    "No valid '-' edges found in cycle or all have zero flow."
+            );
         }
 
         for (int i = 0; i < cycle.size() - 1; i++) {
@@ -510,7 +535,7 @@ public final class GraphAlgo {
 
                 Integer shipping = p.getShippings().get(c);
 
-                if (shipping != null && shipping > 0) {
+                if (shipping != null) {
                     continue;
                 }
 
