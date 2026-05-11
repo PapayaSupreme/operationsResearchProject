@@ -29,6 +29,8 @@ public class Initialization {
         provisions.sort(Comparator.comparingInt(Provision::getId));
         customers.sort(Comparator.comparingInt(Customer::getId));
 
+        ensureDummyCustomerIfNeeded(g, provisions, customers);
+
         for (Provision provision : provisions) {
             provision.clearShipments();
         }
@@ -62,6 +64,9 @@ public class Initialization {
                 j++;
             }
         }
+
+        // Ensure basis is connected by adding zero-flow artificial edges if needed
+        ensureConnectedBasis(g, provisions, customers);
     }
 
     /**
@@ -81,6 +86,8 @@ public class Initialization {
         provisions.sort(Comparator.comparingInt(Provision::getId));
         customers.sort(Comparator.comparingInt(Customer::getId));
 
+        ensureDummyCustomerIfNeeded(g, provisions, customers);
+
         for (Provision provision : provisions) {
             provision.clearShipments();
         }
@@ -99,18 +106,8 @@ public class Initialization {
             totalDemand += remainingDemand[j];
         }
 
-        boolean addDummyCustomer;
-        try {
-            addDummyCustomer = !Tools.isBalanced(g);
-        } catch (IllegalArgumentException e) {
-            throw new UnsupportedOperationException(
-                    "BalasHammer supports only balanced graphs or graphs with supply greater than demand.",
-                    e
-            );
-        }
-
         int[] rowToProvision = new int[provisions.size()];
-        int[] colToCustomer = new int[customers.size() + (addDummyCustomer ? 1 : 0)];
+        int[] colToCustomer = new int[customers.size()];
         for (int i = 0; i < provisions.size(); i++) {
             rowToProvision[i] = i;
         }
@@ -118,19 +115,12 @@ public class Initialization {
             colToCustomer[j] = j;
         }
 
-        if (addDummyCustomer) {
-            colToCustomer[colToCustomer.length - 1] = -1;
-        }
-
-        int[][] costs = buildCostMatrix(provisions, customers, addDummyCustomer);
+        int[][] costs = buildCostMatrix(provisions, customers, false);
 
         int[] workingSupply = new int[rowToProvision.length];
         int[] workingDemand = new int[colToCustomer.length];
         System.arraycopy(remainingSupply, 0, workingSupply, 0, provisions.size());
         System.arraycopy(remainingDemand, 0, workingDemand, 0, customers.size());
-        if (addDummyCustomer) {
-            workingDemand[workingDemand.length - 1] = totalSupply - totalDemand;
-        }
 
         boolean[] activeRows = new boolean[rowToProvision.length];
         boolean[] activeCols = new boolean[colToCustomer.length];
@@ -181,6 +171,9 @@ public class Initialization {
                 activeCols[bestSelection.columnIndex] = false;
             }
         }
+
+        // Ensure basis is connected by adding zero-flow artificial edges if needed
+        ensureConnectedBasis(g, provisions, customers);
     }
 
     private static Selection evaluateRow(int rowIndex, int[][] costs, int[] remainingSupply, int[] remainingDemand, boolean[] activeCols) {
@@ -285,4 +278,152 @@ public class Initialization {
                              int penalty,
                              int cheapestCost,
                              int allocation) {}
+
+    private static void ensureDummyCustomerIfNeeded(
+            Graph g,
+            List<Provision> provisions,
+            List<Customer> customers) {
+
+        boolean balanced;
+        try {
+            balanced = Tools.isBalanced(g);
+        } catch (IllegalArgumentException e) {
+            throw new UnsupportedOperationException(
+                    "Initialization supports only balanced graphs or graphs with supply greater than demand.",
+                    e
+            );
+        }
+
+        if (balanced) {
+            return;
+        }
+
+        int totalSupply = totalProvision(provisions);
+        int totalDemand = totalDemand(customers);
+
+        if (totalSupply < totalDemand) {
+            throw new UnsupportedOperationException(
+                    "Initialization supports only balanced graphs or graphs with supply greater than demand."
+            );
+        }
+
+        Customer dummy = new Customer("Dummy", totalSupply - totalDemand);
+        g.addCustomer(dummy);
+
+        for (Provision provision : provisions) {
+            provision.addEdge(dummy, 0);
+        }
+
+        customers.add(dummy);
+        customers.sort(Comparator.comparingInt(Customer::getId));
+    }
+
+    private static int totalProvision(List<Provision> provisions) {
+        int total = 0;
+        for (Provision provision : provisions) {
+            total += provision.getProvision();
+        }
+        return total;
+    }
+
+    private static int totalDemand(List<Customer> customers) {
+        int total = 0;
+        for (Customer customer : customers) {
+            total += customer.getOrder();
+        }
+        return total;
+    }
+
+    /**
+     * Ensure the basis is connected by adding zero-flow artificial edges.
+     * This is necessary for stepping-stone to work on degenerate/disconnected bases.
+     * Strategy: Add edges between connected components to form a spanning tree.
+     */
+    private static void ensureConnectedBasis(Graph g, List<Provision> provisions, List<Customer> customers) {
+        // Check if basis is already connected
+        if (GraphAlgo.isConnectedIncludingZeroFlow(g)) {
+            return;
+        }
+
+        // Keep adding edges until connected
+        while (!GraphAlgo.isConnectedIncludingZeroFlow(g)) {
+            // Find two disconnected components
+            java.util.Set<Object> component1 = new java.util.HashSet<>();
+            java.util.Set<Object> visited = new java.util.HashSet<>();
+
+            // Start BFS from first provision
+            Provision startP = provisions.get(0);
+            java.util.Queue<Object> queue = new java.util.LinkedList<>();
+            queue.add(startP);
+            visited.add(startP);
+            component1.add(startP);
+
+            while (!queue.isEmpty()) {
+                Object current = queue.poll();
+
+                if (current instanceof Provision prov) {
+                    for (Customer c : prov.getShippings().keySet()) {
+                        if (!visited.contains(c)) {
+                            visited.add(c);
+                            component1.add(c);
+                            queue.add(c);
+                        }
+                    }
+                } else if (current instanceof Customer cust) {
+                    for (Provision prov : provisions) {
+                        if (prov.getShippings().containsKey(cust) && !visited.contains(prov)) {
+                            visited.add(prov);
+                            component1.add(prov);
+                            queue.add(prov);
+                        }
+                    }
+                }
+            }
+
+            // Find an unvisited vertex
+            Provision unvisitedP = null;
+            Customer unvisitedC = null;
+
+            for (Provision p : provisions) {
+                if (!visited.contains(p)) {
+                    unvisitedP = p;
+                    break;
+                }
+            }
+
+            for (Customer c : customers) {
+                if (!visited.contains(c)) {
+                    unvisitedC = c;
+                    break;
+                }
+            }
+
+            // Connect them
+            if (unvisitedP != null) {
+                // Find a customer in component1 to connect to
+                Customer connectedC = null;
+                for (Object obj : component1) {
+                    if (obj instanceof Customer) {
+                        connectedC = (Customer) obj;
+                        break;
+                    }
+                }
+                if (connectedC != null && unvisitedP.getShippings().get(connectedC) == null) {
+                    unvisitedP.addShipment(connectedC, 0);
+                }
+            } else if (unvisitedC != null) {
+                // Find a provision in component1 to connect to
+                Provision connectedP = null;
+                for (Object obj : component1) {
+                    if (obj instanceof Provision) {
+                        connectedP = (Provision) obj;
+                        break;
+                    }
+                }
+                if (connectedP != null && connectedP.getShippings().get(unvisitedC) == null) {
+                    connectedP.addShipment(unvisitedC, 0);
+                }
+            }
+        }
+    }
 }

@@ -70,29 +70,98 @@ public final class GraphAlgo {
         return true;
     }
 
+    /**
+     * Check if graph is connected, including zero-flow edges.
+     * PUBLIC so TraceGenerator can use it.
+     */
+    public static boolean isConnectedIncludingZeroFlow(Graph graph) {
+        if (graph == null) {
+            return false;
+        }
+
+        List<Set<Object>> components = findConnectedComponentsIncludingZeroFlow(graph);
+        return components.size() <= 1;
+    }
+
+    /**
+     * Find all connected components, including zero-flow edges.
+     */
+    private static List<Set<Object>> findConnectedComponentsIncludingZeroFlow(Graph graph) {
+        List<Set<Object>> components = new ArrayList<>();
+        Set<Object> visited = new HashSet<>();
+
+        List<Object> allVertices = new ArrayList<>();
+        allVertices.addAll(graph.getProvisions().values());
+        allVertices.addAll(graph.getCustomers().values());
+
+        for (Object vertex : allVertices) {
+            if (!visited.contains(vertex)) {
+                Set<Object> component = new HashSet<>();
+                Queue<Object> queue = new LinkedList<>();
+
+                queue.add(vertex);
+                visited.add(vertex);
+                component.add(vertex);
+
+                while (!queue.isEmpty()) {
+                    Object current = queue.poll();
+
+                    for (Object neighbor : getNeighborsIncludingZeroFlow(graph, current)) {
+                        if (!visited.contains(neighbor)) {
+                            visited.add(neighbor);
+                            component.add(neighbor);
+                            queue.add(neighbor);
+                        }
+                    }
+                }
+
+                components.add(component);
+            }
+        }
+
+        return components;
+    }
+
+    /**
+     * Get all neighbors of a vertex, INCLUDING zero-flow edges.
+     */
+    private static List<Object> getNeighborsIncludingZeroFlow(Graph graph, Object vertex) {
+        List<Object> neighbors = new ArrayList<>();
+
+        if (vertex instanceof Provision p) {
+            neighbors.addAll(p.getShippings().keySet());
+        } else if (vertex instanceof Customer c) {
+            for (Provision p : graph.getProvisions().values()) {
+                if (p.getShippings().containsKey(c)) {
+                    neighbors.add(p);
+                }
+            }
+        }
+
+        return neighbors;
+    }
+
     private static List<Object> getNeighbors(Graph graph, Object vertex) {
         List<Object> neighbors = new ArrayList<Object>();
 
-        if (vertex instanceof Provision) {
-            Provision provision = (Provision) vertex;
+        if (vertex instanceof Provision provision) {
 
             for (Map.Entry<Customer, Integer> entry
                     : provision.getShippings().entrySet()) {
 
                 Integer quantity = entry.getValue();
 
-                if (quantity != null && quantity.intValue() > 0) {
+                if (quantity != null && quantity > 0) {
                     neighbors.add(entry.getKey());
                 }
             }
-        } else if (vertex instanceof Customer) {
-            Customer customer = (Customer) vertex;
+        } else if (vertex instanceof Customer customer) {
 
             for (Provision provision : graph.getProvisions().values()) {
                 Integer quantity =
                         provision.getShippings().get(customer);
 
-                if (quantity != null && quantity.intValue() > 0) {
+                if (quantity != null && quantity > 0) {
                     neighbors.add(provision);
                 }
             }
@@ -117,7 +186,7 @@ public final class GraphAlgo {
         Set<Object> visited = new HashSet<Object>();
         Queue<Object> queue = new LinkedList<Object>();
 
-        Object start = allVertices.get(0);
+        Object start = allVertices.getFirst();
         visited.add(start);
         queue.add(start);
 
@@ -185,17 +254,78 @@ public final class GraphAlgo {
             Object start,
             Object end) {
 
-        List<Object> path = findPath(graph, start, end);
+        // Build cycle as: start -> end -> ... -> start
+        // so the entering edge (start -> end) is always the first '+' edge.
+        // First try path through current positive-flow basis edges
+        List<Object> path = findPath(graph, end, start);
+
+        // If that fails and basis is disconnected, try including zero-flow edges
+        if (path.isEmpty()) {
+            path = findPathIncludingZeroFlow(graph, end, start);
+        }
 
         if (path.isEmpty()) {
             throw new IllegalStateException(
                     "No path found between vertices.");
         }
 
-        List<Object> cycle = new ArrayList<Object>(path);
+        List<Object> cycle = new ArrayList<Object>();
         cycle.add(start);
+        cycle.addAll(path);
+
+        if (cycle.size() < 4 || !cycle.getLast().equals(start)) {
+            throw new IllegalStateException("Invalid cycle built for entering edge.");
+        }
 
         return cycle;
+    }
+
+    /**
+     * Find path including zero-flow basic edges (for degenerate/disconnected bases).
+     */
+    private static List<Object> findPathIncludingZeroFlow(
+            Graph graph,
+            Object start,
+            Object end) {
+
+        Map<Object, Object> parent = new HashMap<Object, Object>();
+        Set<Object> visited = new HashSet<Object>();
+        Queue<Object> queue = new LinkedList<Object>();
+
+        visited.add(start);
+        parent.put(start, null);
+        queue.add(start);
+
+        while (!queue.isEmpty()) {
+            Object current = queue.poll();
+
+            if (current.equals(end)) {
+                break;
+            }
+
+            for (Object neighbor : getNeighborsIncludingZeroFlow(graph, current)) {
+                if (!visited.contains(neighbor)) {
+                    visited.add(neighbor);
+                    parent.put(neighbor, current);
+                    queue.add(neighbor);
+                }
+            }
+        }
+
+        List<Object> path = new ArrayList<Object>();
+
+        if (!parent.containsKey(end)) {
+            return path;
+        }
+
+        Object step = end;
+        while (step != null) {
+            path.add(step);
+            step = parent.get(step);
+        }
+
+        Collections.reverse(path);
+        return path;
     }
 
     public static void maximizeCycle(
@@ -206,58 +336,98 @@ public final class GraphAlgo {
             throw new IllegalArgumentException("Invalid cycle.");
         }
 
+        validateAlternatingCycle(cycle);
+
         int delta = Integer.MAX_VALUE;
+        int leavingIndex = -1;
 
         for (int i = 0; i < cycle.size() - 1; i++) {
             if (i % 2 == 1) {
                 int flow = getFlow(
-                        graph,
                         cycle.get(i),
                         cycle.get(i + 1));
 
-                delta = Math.min(delta, flow);
+                if (flow < 0) {
+                    throw new IllegalStateException(
+                            "Cannot apply cycle: '-' edge has negative flow (" + flow + ")"
+                    );
+                }
+
+                if (flow == 0 && leavingIndex == -1) {
+                    leavingIndex = i;
+                }
+
+                if (flow > 0) {
+                    delta = Math.min(delta, flow);
+                }
             }
         }
 
-        if (delta == Integer.MAX_VALUE) {
+        // Degenerate pivot: swap the zero-flow basic edge out of the basis
+        // without changing shipments.
+        if (leavingIndex != -1) {
+            setFlow(
+                    cycle.get(0),
+                    cycle.get(1),
+                    getFlow(cycle.get(0), cycle.get(1))
+            );
+            removeFlow(
+                    cycle.get(leavingIndex),
+                    cycle.get(leavingIndex + 1)
+            );
+            return;
+        }
+
+        if (delta == Integer.MAX_VALUE || delta <= 0) {
             throw new IllegalStateException(
-                    "No valid '-' edges found in cycle.");
+                    "No valid '-' edges found in cycle or all have zero flow."
+            );
         }
 
         for (int i = 0; i < cycle.size() - 1; i++) {
             Object from = cycle.get(i);
             Object to = cycle.get(i + 1);
 
-            int currentFlow = getFlow(graph, from, to);
+            int currentFlow = getFlow(from, to);
 
             if (i % 2 == 0) {
-                setFlow(graph, from, to, currentFlow + delta);
+                setFlow(from, to, currentFlow + delta);
             } else {
                 int newFlow = currentFlow - delta;
 
                 if (newFlow == 0) {
-                    removeFlow(graph, from, to);
+                    removeFlow(from, to);
                 } else {
-                    setFlow(graph, from, to, newFlow);
+                    setFlow(from, to, newFlow);
                 }
             }
         }
     }
 
+    private static void validateAlternatingCycle(List<Object> cycle) {
+        for (int i = 0; i < cycle.size() - 1; i++) {
+            Object from = cycle.get(i);
+            Object to = cycle.get(i + 1);
+
+            boolean validEdge =
+                    (from instanceof Provision && to instanceof Customer)
+                            || (from instanceof Customer && to instanceof Provision);
+
+            if (!validEdge) {
+                throw new IllegalArgumentException("Invalid cycle: edges must alternate Provision/Customer.");
+            }
+        }
+    }
+
     private static int getFlow(
-            Graph graph,
             Object from,
             Object to) {
 
-        if (from instanceof Provision && to instanceof Customer) {
-            Provision p = (Provision) from;
-            Customer c = (Customer) to;
+        if (from instanceof Provision p && to instanceof Customer c) {
             return p.getShippings().getOrDefault(c, 0);
         }
 
-        if (from instanceof Customer && to instanceof Provision) {
-            Customer c = (Customer) from;
-            Provision p = (Provision) to;
+        if (from instanceof Customer c && to instanceof Provision p) {
             return p.getShippings().getOrDefault(c, 0);
         }
 
@@ -265,21 +435,16 @@ public final class GraphAlgo {
     }
 
     private static void setFlow(
-            Graph graph,
             Object from,
             Object to,
             int value) {
 
-        if (from instanceof Provision && to instanceof Customer) {
-            Provision p = (Provision) from;
-            Customer c = (Customer) to;
+        if (from instanceof Provision p && to instanceof Customer c) {
             p.addShipment(c, value);
             return;
         }
 
-        if (from instanceof Customer && to instanceof Provision) {
-            Customer c = (Customer) from;
-            Provision p = (Provision) to;
+        if (from instanceof Customer c && to instanceof Provision p) {
             p.addShipment(c, value);
             return;
         }
@@ -288,21 +453,16 @@ public final class GraphAlgo {
     }
 
     private static void removeFlow(
-            Graph graph,
             Object from,
             Object to) {
 
-        if (from instanceof Provision && to instanceof Customer) {
-            Provision p = (Provision) from;
-            Customer c = (Customer) to;
-            p.getShippings().remove(c);
+        if (from instanceof Provision p && to instanceof Customer c) {
+            p.removeShipment(c);
             return;
         }
 
-        if (from instanceof Customer && to instanceof Provision) {
-            Customer c = (Customer) from;
-            Provision p = (Provision) to;
-            p.getShippings().remove(c);
+        if (from instanceof Customer c && to instanceof Provision p) {
+            p.removeShipment(c);
             return;
         }
 
@@ -323,8 +483,7 @@ public final class GraphAlgo {
         while (!queue.isEmpty()) {
             Object current = queue.poll();
 
-            if (current instanceof Provision) {
-                Provision p = (Provision) current;
+            if (current instanceof Provision p) {
 
                 for (Map.Entry<Customer, Integer> entry
                         : p.getShippings().entrySet()) {
@@ -340,8 +499,7 @@ public final class GraphAlgo {
                     }
                 }
 
-            } else if (current instanceof Customer) {
-                Customer c = (Customer) current;
+            } else if (current instanceof Customer c) {
 
                 for (Provision p
                         : graph.getProvisions().values()) {
@@ -377,15 +535,13 @@ public final class GraphAlgo {
 
                 Integer shipping = p.getShippings().get(c);
 
-                if (shipping != null && shipping.intValue() > 0) {
+                if (shipping != null) {
                     continue;
                 }
 
                 int cost = p.getCosts().get(c);
-                int u = potential.containsKey(p)
-                        ? potential.get(p) : 0;
-                int v = potential.containsKey(c)
-                        ? potential.get(c) : 0;
+                int u = potential.getOrDefault(p, 0);
+                int v = potential.getOrDefault(c, 0);
 
                 int delta = cost - (u + v);
 
@@ -394,6 +550,7 @@ public final class GraphAlgo {
                     bestP = p;
                     bestC = c;
                 }
+                System.out.println(p.getName() + "u and " + c.getName() + "v: " + u + " " + v);
             }
         }
 

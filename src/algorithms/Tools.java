@@ -48,9 +48,17 @@ public class Tools {
         boolean isNotEmpty = false;
         int totalCost = 0;
         for (Provision p : g.getProvisions().values()){
-            for (Customer shippedTo : p.getShippings().keySet()){
+            for (java.util.Map.Entry<Customer, Integer> shipping : p.getShippings().entrySet()){
+                Customer shippedTo = shipping.getKey();
+                int quantity = shipping.getValue();
                 isNotEmpty = true;
-                totalCost += p.getCosts().get(shippedTo);
+                Integer unitCost = p.getCosts().get(shippedTo);
+                if (unitCost == null) {
+                    throw new IllegalStateException(
+                            "Missing unit cost for route " + p.getName() + " -> " + shippedTo.getName() + "."
+                    );
+                }
+                totalCost += unitCost * quantity;
             }
         }
 
