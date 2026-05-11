@@ -6,6 +6,7 @@ import structure.Graph;
 import structure.Provision;
 import utilities.MenuHelper;
 import utilities.Timer;
+import utilities.RandomGraphGenerator;
 
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +32,7 @@ public class Main {
             System.out.println("7. Check if the problem is connected or not");
             System.out.println("8. Perform one optimization step");
             System.out.println("9. Optimize until optimal solution");
+            System.out.println("10. Benchmark: Generate random graph and test algorithms");
             System.out.println("0. Exit");
             System.out.print("Choose an option: ");
 
@@ -248,6 +250,21 @@ public class Main {
 
                     finalCost.ifPresent(integer -> System.out.println("Final total cost: "
                             + integer));
+                    break;
+
+                case "10":
+                    System.out.print("Enter the size of the random graph (n for n×n): ");
+                    String sizeInput = scanner.nextLine().trim();
+                    try {
+                        int n = Integer.parseInt(sizeInput);
+                        if (n <= 0) {
+                            System.out.println("Size must be positive.");
+                            break;
+                        }
+                        RandomGraphGenerator.benchmarkAlgorithms(n);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid input. Please enter a positive integer.");
+                    }
                     break;
 
                 case "0":

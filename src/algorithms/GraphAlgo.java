@@ -550,6 +550,7 @@ public final class GraphAlgo {
                     bestP = p;
                     bestC = c;
                 }
+                System.out.println(p.getName() + "u and " + c.getName() + "v: " + u + " " + v);
             }
         }
 
